@@ -30,18 +30,19 @@ KEYPOINT_DICT = {
 }
 
 CLASS_DICT = {"pick_up": 0, "put_back": 1, "raise_hand": 2, "standing": 3, "walking": 4}
+ALL_CLASSES = ["pick_up", "put_back", "raise_hand", "standing", "walking"]
 MAX_SEQUENCE_LENGTH = 170
 
 
 def split_dataset(
     data_paths: List[Path],
-    class_dict: dict,
+    classes: List[str],
     test_size: int = 0.2,
     random_state: int = 123,
 ):
     train_paths = []
     val_paths = []
-    for cl in class_dict.keys():
+    for cl in classes:
         cl_paths = [path for path in data_paths if cl in str(path)]
         train_class_paths, val_class_paths = train_test_split(
             cl_paths, test_size=test_size, random_state=random_state
@@ -61,9 +62,14 @@ def get_class_key(csv_path: Path, class_dict: dict):
 
 
 class SimpleSequenceDatasetCreator(object):
-    def __init__(self, dataset_dir: str, fill_value: dict = {"x": 0, "y": 0, "s": 0}):
+    def __init__(
+        self,
+        dataset_dir: str,
+        fill_value: dict = {"x": 0, "y": 0, "s": 0},
+        classes: List[str] = ALL_CLASSES,
+    ):
 
-        self.class_dict = CLASS_DICT
+        self.class_dict = {cl: num for cl, num in zip(classes, range(len(classes)))}
         self.max_sequence_length = MAX_SEQUENCE_LENGTH
         self.dataset_dir = Path(dataset_dir).resolve()
         self.fill_value = fill_value
@@ -71,7 +77,7 @@ class SimpleSequenceDatasetCreator(object):
         self.data_paths = list(self.dataset_dir.glob("**/*.csv"))
 
         self.train_paths, self.val_paths = split_dataset(
-            self.data_paths, self.class_dict
+            self.data_paths, classes=classes
         )
 
     def __get_pose_dict(self, df: pd.DataFrame, frame_id: int) -> dict:
@@ -157,7 +163,7 @@ class SimpleSequenceDatasetCreator(object):
 
         dataset = dataset.padded_batch(batch_size, padded_shapes, padding_values)
 
-        return dataset
+        return dataset, (self.max_sequence_length, 18, 3), self.class_dict
 
 
 class ProcessedSequenceDatasetCreator(object):
@@ -172,9 +178,10 @@ class ProcessedSequenceDatasetCreator(object):
             "right_eye",
             "right_eye",
         ],
+        classes: List[str] = ALL_CLASSES,
     ):
 
-        self.class_dict = CLASS_DICT
+        self.class_dict = {cl: num for cl, num in zip(classes, range(len(classes)))}
         self.max_sequence_length = MAX_SEQUENCE_LENGTH
         self.dataset_dir = Path(dataset_dir).resolve()
         self.kept_positions = [
@@ -184,7 +191,7 @@ class ProcessedSequenceDatasetCreator(object):
         self.data_paths = list(self.dataset_dir.glob("**/*.csv"))
 
         self.train_paths, self.val_paths = split_dataset(
-            self.data_paths, self.class_dict
+            self.data_paths, classes=classes
         )
 
     def __get_pose_dict(self, df: pd.DataFrame, frame_id: int, prev_pose: dict) -> dict:
@@ -278,12 +285,12 @@ class ProcessedSequenceDatasetCreator(object):
 
         input_shape = (self.max_sequence_length, len(self.kept_positions), 3)
 
-        return dataset, input_shape
+        return dataset, input_shape, self.class_dict
 
 
 if __name__ == "__main__":
 
-    dataset_creator = ProcessedSequenceDatasetCreator(
+    dataset_creator = SimpleSequenceDatasetCreator(
         "/Users/jaumebrossa/Code/AI/v7_challenge/data/trainval/"
     )
 

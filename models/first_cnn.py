@@ -1,5 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Conv2D, Flatten, Dense, Conv1D
+from tensorflow.keras.optimizers import Adam
 
 from typing import Tuple
 
@@ -16,6 +17,7 @@ class SimpleCNN(object):
         self.conv2d_filters = kwargs.get("conv2d_filters", 2)
         self.conv1d_num = kwargs.get("conv1d_num", 2)
         self.conv1d_filters = kwargs.get("conv1d_filters", 2)
+        self.learning_rate = kwargs.get("learning_rate", 0.001)
 
     def get_model(self, input_shape: Tuple[int]):
 
@@ -43,12 +45,14 @@ class SimpleCNN(object):
 
         x = Flatten()(x)
 
-        x = Dense(self.nc, activation="softmax")(x)
+        output = Dense(self.nc, activation="softmax")(x)
 
-        model = tf.keras.Model(inputs=input_tensor, outputs=x)
+        model = tf.keras.Model(inputs=input_tensor, outputs=output)
 
         model.compile(
-            optimizer="Adam", loss="categorical_crossentropy", metrics=["acc"]
+            optimizer=Adam(lr=self.learning_rate),
+            loss="categorical_crossentropy",
+            metrics=["acc"],
         )
 
         return model

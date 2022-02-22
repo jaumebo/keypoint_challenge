@@ -3,10 +3,8 @@ import tensorflow as tf
 
 import wandb
 
-CLASS_NAMES = ["pick_up", "put_back", "raise_hand", "standing", "walking"]
 
-
-def evaluate(model: tf.keras.Model, dataset: tf.data.Dataset):
+def evaluate(model: tf.keras.Model, dataset: tf.data.Dataset, class_dict: dict):
 
     y_true = []
     y_pred = []
@@ -17,9 +15,9 @@ def evaluate(model: tf.keras.Model, dataset: tf.data.Dataset):
     wandb.log(
         {
             "conf_mat": wandb.plot.confusion_matrix(
-                probs=None, y_true=y_true, preds=y_pred, class_names=CLASS_NAMES
+                probs=None, y_true=y_true, preds=y_pred, class_names=list(class_dict.keys())
             )
         }
     )
 
-    wandb.sklearn.plot_confusion_matrix(y_true, y_pred, CLASS_NAMES)
+    wandb.sklearn.plot_confusion_matrix(y_true, y_pred, list(class_dict.keys()))
