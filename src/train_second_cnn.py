@@ -1,10 +1,11 @@
-from data.dataset import ProcessedSequenceDatasetCreator, SimpleSequenceDatasetCreator
-from models.second_cnn import SecondCNN
-import tensorflow as tf
-import wandb
-from wandb.keras import WandbCallback
 import argparse
-from evaluate import evaluate
+
+import wandb
+from data.dataset import ProcessedSequenceDatasetCreator, SimpleSequenceDatasetCreator
+from train_utils.evaluate import evaluate
+from models.second_cnn import SecondCNN
+
+from train_utils.callbacks import get_callbacks
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--processed_dataset", type=bool, nargs="?", default=True)
@@ -17,14 +18,10 @@ parser.add_argument("--time_window", type=int, nargs="?", default=10)
 parser.add_argument("--dense_num", type=int, nargs="?", default=1)
 parser.add_argument("--dense_units", type=int, nargs="?", default=20)
 
-
-# Get the hyperparameters
 args = parser.parse_args()
 
-# Pass them to wandb.init
 wandb.init(config=args)
 
-# Access all hyperparameter values through wandb.config
 config = wandb.config
 
 if config["processed_dataset"]:
@@ -43,35 +40,13 @@ model_builder = SecondCNN(**config)
 
 model = model_builder.get_model(input_shape)
 
-early_stopper = tf.keras.callbacks.EarlyStopping(
-    monitor="val_loss", patience=15, restore_best_weights=True
-)
-
-save_model_path = f"runs/{wandb.run.name}"
-
-model_checkpoint = tf.keras.callbacks.ModelCheckpoint(
-    save_model_path,
-    monitor="val_loss",
-    save_best_only=True,
-    save_weights_only=False,
-)
-
-learning_rate_scheduler = tf.keras.callbacks.ReduceLROnPlateau(
-    monitor="val_loss",
-    factor=0.1,
-    patience=10,
-)
+callbacks, save_model_path = get_callbacks()
 
 model.fit(
     train_dataset,
     epochs=500,
     validation_data=val_dataset,
-    callbacks=[
-        WandbCallback(),
-        early_stopper,
-        model_checkpoint,
-        learning_rate_scheduler,
-    ],
+    callbacks=callbacks,
 )
 
 evaluate(model, val_dataset)

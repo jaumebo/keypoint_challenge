@@ -6,9 +6,11 @@ import tensorflow as tf
 from tensorflow.keras.layers import (
     Concatenate,
     Dense,
-    DepthwiseConv2D,
+    Attention,
     GlobalAveragePooling1D,
-    MultiHeadAttention,
+    Concatenate,
+    Conv1D,
+    Conv3D,
 )
 from tensorflow.keras.optimizers import Adam
 
@@ -49,42 +51,61 @@ class SimpleAttention(object):
         **kwargs,
     ):
         self.nc = nc
+        self.batch_size = kwargs.get("batch_size", 4)
         self.learning_rate = kwargs.get("learning_rate", 0.001)
-        self.hidden_length = kwargs.get("hidden_length", 4)
+        self.hidden_length = kwargs.get("hidden_length", 10)
+        self.embed_length = kwargs.get("embed_length", 10)
+        self.embed_kernel = kwargs.get("embed_kernel", 4)
         self.dense_num = kwargs.get("dense_num", 1)
         self.dense_units = kwargs.get("dense_units", 10)
 
+    def __get_attention_mask(self, scores):
+
+        attention_mask = tf.math.reduce_sum(scores, axis=-1)
+
+        attention_mask = tf.cast(attention_mask, tf.bool)
+
+        return attention_mask
+
     def get_model(self, input_shape: Tuple[int]):
 
-        input_tensor = tf.keras.Input(shape=input_shape)
+        input_tensor = tf.keras.Input(shape=input_shape, batch_size=self.batch_size)
 
-        x = tf.transpose(input_tensor, perm=[0, 2, 3, 1])
+        scores = input_tensor[:, :, :, -1]
 
-        x = DepthwiseConv2D(kernel_size=(1, x.shape[2]), activation="relu")(x)
+        x = tf.expand_dims(input_tensor, axis=-1)
 
-        x = tf.squeeze(x, axis=2)
+        x = Conv3D(
+            filters=self.hidden_length,
+            kernel_size=(1, 3, x.shape[3]),
+            strides=(1, 3, 1),
+            activation="relu",
+        )(x)
 
-        x = tf.transpose(x, perm=[0, 2, 1])
+        x = tf.squeeze(x, axis=3)
+
+        x = tf.reshape(x, shape=(self.batch_size, x.shape[1], -1))
 
         x = AddPositionEmbs()(x)
 
-        cnn_layer = tf.keras.layers.Conv1D(
-            filters=self.hidden_length,
-            kernel_size=4,
+        cnn_layer = Conv1D(
+            filters=self.embed_length,
+            kernel_size=self.embed_kernel,
             padding="same",
         )
+
         query = cnn_layer(x)
         key = cnn_layer(x)
         value = cnn_layer(x)
+        attention_mask = self.__get_attention_mask(scores)
 
-        query_value_attention_seq = tf.keras.layers.Attention()([query, value, key])
-
-        # [batch_size, filters].
-        query_encoding = tf.keras.layers.GlobalAveragePooling1D()(query)
-        query_value_attention = tf.keras.layers.GlobalAveragePooling1D()(
-            query_value_attention_seq
+        query_value_attention_seq = Attention()(
+            [query, value, key], mask=[attention_mask, attention_mask]
         )
-        x = tf.keras.layers.Concatenate()([query_encoding, query_value_attention])
+
+        query_encoding = GlobalAveragePooling1D()(query)
+        query_value_attention = GlobalAveragePooling1D()(query_value_attention_seq)
+        x = Concatenate()([query_encoding, query_value_attention])
 
         for _ in range(self.dense_num):
             x = Dense(self.dense_units, activation="relu")(x)
@@ -104,11 +125,11 @@ class SimpleAttention(object):
 
 if __name__ == "__main__":
 
-    tensor = tf.random.uniform((4, 170, 13, 3))
+    tensor = tf.random.uniform((4, 170, 12, 3))
 
     simple_cnn = SimpleAttention()
 
-    model = simple_cnn.get_model((170, 13, 3))
+    model = simple_cnn.get_model((170, 12, 3))
 
     output = model(tensor)
     print(output.shape)

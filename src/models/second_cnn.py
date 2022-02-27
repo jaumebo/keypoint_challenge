@@ -24,11 +24,8 @@ class SecondCNN(object):
 
         input_tensor = tf.keras.Input(shape=input_shape)
 
-        if not self.input_scores:
-            x = input_tensor[:, :, :, :2]
-            scores = input_tensor[:, :, :, 2]
-        else:
-            x = input_tensor
+        x = input_tensor[:, :, :, :2]
+        scores = input_tensor[:, :, :, 2]
 
         x = tf.transpose(x, perm=[0, 2, 3, 1])
 
@@ -38,8 +35,7 @@ class SecondCNN(object):
 
         x = tf.transpose(x, perm=[0, 2, 1])
 
-        if not self.input_scores and self.scale_with_scores:
-            x = tf.multiply(x, scores)
+        x = tf.multiply(x, scores)
 
         x = Dense(self.position_embed_length, activation="relu")(x)
 
@@ -65,10 +61,3 @@ class SecondCNN(object):
         )
 
         return model
-
-
-if __name__ == "__main__":
-
-    simple_cnn = SecondCNN()
-
-    simple_cnn.get_model((170, 18, 3))

@@ -56,10 +56,3 @@ class SimpleCNN(object):
         )
 
         return model
-
-
-if __name__ == "__main__":
-
-    simple_cnn = SimpleCNN()
-
-    simple_cnn.get_model((169, 18, 3))
