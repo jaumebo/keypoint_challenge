@@ -1,6 +1,7 @@
 import argparse
 from copy import deepcopy
 from pathlib import Path
+from tkinter import X
 from typing import List
 
 import numpy as np
@@ -121,28 +122,30 @@ if __name__ == "__main__":
         "--primary_model_path",
         type=str,
         nargs="?",
-        default="/Users/jaumebrossa/Code/AI/v7_challenge/keypoint_challenge/saved_models/primary_model",
     )
     parser.add_argument(
         "--secondary_model_path",
         type=str,
         nargs="?",
-        default="/Users/jaumebrossa/Code/AI/v7_challenge/keypoint_challenge/saved_models/secondary_model",
     )
+    parser.add_argument(
+        "--test_dir",
+        type=str,
+        nargs="?",
+    )
+
     args = parser.parse_args()
 
     detector = Detector(args.primary_model_path, args.secondary_model_path)
 
-    csv_paths = Path("/Users/jaumebrossa/Code/AI/v7_challenge/data/test").glob(
-        "**/*.csv"
-    )
+    csv_paths = Path(args.test_dir).glob("**/*.csv")
 
     results = detector.predict(csv_paths)
 
-    df = pd.DataFrame(columns = ["file","class"])
+    df = pd.DataFrame(columns=["file", "class"])
 
     for res in results:
-        df = df.append({"file": res[0], "class": res[2]})
+        res_df = pd.DataFrame.from_dict({"file": [res[0]], "class": [res[2]]})
+        df = pd.concat([df, res_df], ignore_index=True)
 
-    df.to_csv("test_results.csv")
-
+    df.to_csv("test_results.csv", index=False)

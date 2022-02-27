@@ -33,8 +33,8 @@ else:
         "/Users/jaumebrossa/Code/AI/v7_challenge/data/trainval/"
     )
 
-train_dataset, input_shape = dataset_creator.get_dataset("train", config["batch_size"])
-val_dataset, input_shape = dataset_creator.get_dataset("val", config["batch_size"])
+train_dataset, input_shape, class_dict = dataset_creator.get_dataset("train", config["batch_size"])
+val_dataset, *_ = dataset_creator.get_dataset("val", config["batch_size"])
 
 model_builder = SecondCNN(**config)
 
@@ -49,6 +49,6 @@ model.fit(
     callbacks=callbacks,
 )
 
-evaluate(model, val_dataset)
+evaluate(model, val_dataset, class_dict)
 
 wandb.save(f"{save_model_path}/*")
